@@ -1,7 +1,7 @@
 FROM ubuntu:20.04
 #build base image, keep ROOT version and G4 version same as cvmfs LCG_97a
 LABEL maintainer.name="DSS team"
-LABEL version="20210215"
+LABEL version="20210216"
 LABEL maintainer.email="qibin.liu@cern.ch"
 
 ENV LANG=C.UTF-8
@@ -17,37 +17,45 @@ RUN apt-get update  \
  && dpkg-reconfigure locales \
  && apt-get autoremove -y \
  && apt-get clean \
- && rm -rf /var/lib/apt/lists/* 
+ && rm -rf /var/lib/apt/lists/* \
+ && ldconfig \
+ && strip --remove-section=.note.ABI-tag /usr/lib/x86_64-linux-gnu/libQt5Core.so \
+ && ldconfig -v
+#strip is to solve the problem in qt5 which checks the compatibility with the host kernel.
+#check by yourself then.
 
 #Layer2: ROOT
 WORKDIR /tmp
 ARG ROOT_VERSION=6.20.06
 ARG ROOT_SRC=root_v${ROOT_VERSION}.source.tar.gz
+ENV ROOTSYS /opt/root
 RUN wget https://root.cern/download/${ROOT_SRC} \
  && tar -xzvf ${ROOT_SRC} && rm -f ${ROOT_SRC} \
  && mkdir root-build && cd root-build \
- && cmake - qt5web=ON -DCMAKE_INSTALL_PREFIX=/opt/root -DCMAKE_CXX_STANDARD=17 ../root-${ROOT_VERSION} ;\
+ && cmake - qt5web=ON -DCMAKE_INSTALL_PREFIX=${ROOTSYS} -DCMAKE_CXX_STANDARD=17 ../root-${ROOT_VERSION} ;\
     make -j12;\
     make install && cd .. && rm -rf root-build root-${ROOT_VERSION} \
- && echo /opt/root/lib >> /etc/ld.so.conf \
- && ldconfig
+ && echo ${ROOTSYS}/lib >> /etc/ld.so.conf \
+ && ldconfig -v
 
-ENV ROOTSYS /opt/root
-ENV PATH $ROOTSYS/bin:$PATH
-ENV PYTHONPATH $ROOTSYS/lib:$PYTHONPATH
+ENV PATH ${ROOTSYS}/bin:$PATH
+ENV PYTHONPATH ${ROOTSYS}/lib:${PYTHONPATH}
 ENV CLING_STANDARD_PCH none
 
 #Layer3: GEANT4
-SHELL ["/bin/bash", "-c"]
+# we do not source root anymore like
+#SHELL ["/bin/bash", "-c"]
+#    && . ${ROOTSYS}/bin/thisroot.sh\
+# since we have already set necessary ENV
 WORKDIR /tmp
 ARG GEANT_NAME=geant4.10.06.p02
 ARG GEANT4_VERSION=10.06.2
+ENV G4INSTALL /opt/geant4
 RUN wget http://cern.ch/geant4-data/releases/${GEANT_NAME}.tar.gz \
     && tar -xzvf ${GEANT_NAME}.tar.gz && rm -f ${GEANT_NAME}.tar.gz \
     && mkdir geant4-build && cd geant4-build\
-    && . ${ROOTSYS}/bin/thisroot.sh\
     && cmake -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-          -DCMAKE_INSTALL_PREFIX=/opt/geant4 \
+          -DCMAKE_INSTALL_PREFIX=${G4INSTALL} \
           -DGEANT4_BUILD_CXXSTD=17 \
           -DGEANT4_INSTALL_DATA=ON \
           -DGEANT4_USE_SYSTEM_CLHEP=OFF \
@@ -58,12 +66,28 @@ RUN wget http://cern.ch/geant4-data/releases/${GEANT_NAME}.tar.gz \
           -DGEANT4_USE_XM=ON \
           -DGEANT4_BUILD_MULTITHREADED=ON \
           ../${GEANT_NAME} ;\
-    make -j8 ;\
-    make install && cd .. && rm -rf ${GEANT_NAME} geant4-build
+    make -j12 ;\
+    make install && cd .. && rm -rf ${GEANT_NAME} geant4-build \
+    && echo ${G4INSTALL}/lib >> /etc/ld.so.conf \
+    && ldconfig -v 
 
-ENV G4COMP /opt/geant4/lib/Geant4-${GEANT4_VERSION}
-ENV G4INSTALL /opt/geant4
 ENV PATH ${G4INSTALL}/bin:${PATH}
+ENV G4COMP ${G4INSTALL}/lib/Geant4-${GEANT4_VERSION}
+ENV G4DATA ${G4INSTALL}/share/Geant4-${GEANT4_VERSION}/data
+
+#need better method set version-dependent version
+#this is to avoid source geant4.sh
+ENV G4NEUTRONHPDATA ${G4DATA}/G4NDL4.6
+ENV G4LEDATA ${G4DATA}/G4EMLOW7.9.1
+ENV G4LEVELGAMMADATA ${G4DATA}/PhotonEvaporation5.5
+ENV G4RADIOACTIVEDATA ${G4DATA}/RadioactiveDecay5.4
+ENV G4PARTICLEXSDATA ${G4DATA}/G4PARTICLEXS2.1
+ENV G4PIIDATA ${G4DATA}/G4PII1.3
+ENV G4REALSURFACEDATA ${G4DATA}/RealSurface2.1.1
+ENV G4SAIDXSDATA ${G4DATA}/G4SAIDDATA2.0
+ENV G4ABLADATA ${G4DATA}/G4ABLA3.1
+ENV G4INCLDATA ${G4DATA}/G4INCL1.0
+ENV G4ENSDFSTATEDATA ${G4DATA}/G4ENSDFSTATE2.2
 
 #Final: chdir to opt and source necessary environment.
 WORKDIR /opt

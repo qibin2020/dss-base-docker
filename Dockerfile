@@ -48,8 +48,10 @@ ENV CLING_STANDARD_PCH none
 #    && . ${ROOTSYS}/bin/thisroot.sh\
 # since we have already set necessary ENV
 WORKDIR /tmp
+#the versiongig is intertesting...
 ARG GEANT_NAME=geant4.10.06.p02
 ARG GEANT4_VERSION=10.06.2
+ARG GEANT4_DATA_VERSION=10.6.2
 ENV G4INSTALL /opt/geant4
 RUN wget http://cern.ch/geant4-data/releases/${GEANT_NAME}.tar.gz \
     && tar -xzvf ${GEANT_NAME}.tar.gz && rm -f ${GEANT_NAME}.tar.gz \
@@ -73,7 +75,7 @@ RUN wget http://cern.ch/geant4-data/releases/${GEANT_NAME}.tar.gz \
 
 ENV PATH ${G4INSTALL}/bin:${PATH}
 ENV G4COMP ${G4INSTALL}/lib/Geant4-${GEANT4_VERSION}
-ENV G4DATA ${G4INSTALL}/share/Geant4-${GEANT4_VERSION}/data
+ENV G4DATA ${G4INSTALL}/share/Geant4-${GEANT4_DATA_VERSION}/data
 
 #need better method set version-dependent version
 #this is to avoid source geant4.sh

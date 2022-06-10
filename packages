@@ -1,3 +1,4 @@
+wget
 git
 cmake
 ca-certificates
@@ -76,5 +77,4 @@ libhepmcfio4
 libexpat1-dev
 libyaml-cpp-dev
 libxerces-c-dev
-
-
+libeigen3-dev

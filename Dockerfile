@@ -11,9 +11,13 @@ WORKDIR /opt
 COPY packages packages
 # Disable Prompt During Packages Installation
 ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update  \
+# Change Mirror since strange 404 error
+#ARG UBUNTU_MIRROR=http://ftp.udx.icscoe.jp/Linux/ubuntu/
+ARG UBUNTU_MIRROR=http://cn.archive.ubuntu.com/
+RUN sed -i "s#http://archive.ubuntu.com/#${UBUNTU_MIRROR}#g" /etc/apt/sources.list \
+ && apt-get update  \
  && ln -sf /usr/share/zoneinfo/UTC /etc/localtime \
- && apt-get -y install $(cat packages) wget\
+ && apt-get -y install $(cat packages) \
  && dpkg-reconfigure locales \
  && apt-get autoremove -y \
  && apt-get clean \
